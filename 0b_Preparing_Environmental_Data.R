@@ -161,27 +161,14 @@ ggplot(df)+
 ##################################################################
 ###/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\###
 ##################################################################
-
+#NCEP doesn't have precipitation data
 
 ##################################################################
 ###/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\###
 ##################################################################
 
-#NDVI is not thought to be a major influence on Cerrado habitat so not using - prior thought was to look at tree/stem density (check that NDVI can be used as a proxy for forest cover/savannah),
-#Land use (Mapbiomas)
-
-
 
 ### Clip the data layers to the SouthAmerica area #studyarea.extent<-extent(-63,-40,-2,-27)
 
 ### Stack the data layers (this is the way they are organized for processing in model)
 
-#####/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\#####
-##############################################################
-#####/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\#####
-
-### Get the data layers for the historical time period (1985-2015)
-
-### Clip the data layers to the SouthAmerica area #studyarea.extent<-extent(-63,-40,-2,-27)
-
-### Stack the data layers (this is the way they are organized for processing in model)

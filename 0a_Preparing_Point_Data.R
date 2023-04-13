@@ -1,5 +1,5 @@
 #0a_Preparing eBird and Cerrado database point data
-rm(list=ls())
+rm(list=ls()) #clear the R Global Environment
 library(ff)
 library(ffbase)
 library(dplyr)

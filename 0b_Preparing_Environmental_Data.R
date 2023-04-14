@@ -145,6 +145,16 @@ limit <- st_read("SouthAmerica.shp")
 ## Bounding box:  xmin: -109.4604 ymin: -59.48714 xmax: -26.23419 ymax: 12.62908
 ## Geodetic CRS:  WGS 84
 
+e<-extent(limit) #get the spatial extent/boundary of the South America shape file
+
+Temp_data_2020<-subset(df, year == '2020')
+Temp_data_2020<-Temp_data_2020[,-3] #to rasterize the df needs to have lon, lat, and data columns
+View(Temp_data_2020)
+
+Temp_data<-rasterFromXYZ(Temp_data_2020)
+plot(Temp_data) #check that it worked
+
+### To view the different years
 #color scheme
 colbr <- brewer.pal(11,"RdBu")
 
@@ -161,14 +171,138 @@ ggplot(df)+
 ##################################################################
 ###/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\###
 ##################################################################
-#NCEP doesn't have precipitation data
+# get relative humidity data from NCEP:
+start_time<-Sys.time() #this will keep track of what time it was when you start the next line of code
+
+data <- NCEP.gather("rhum",    #name of the variable
+                    850, #pressure level 1000hPa is the surface pressure exerted in the Cerrado (1mb=1hPa) as seen here: https://www.worldweatheronline.com/cerrado-weather/parana/br.aspx
+                    month_range,year_range,
+                    lat_range,lon_range,
+                    return.units = TRUE,
+                    reanalysis2=TRUE)#the reanalysis2 argument allows us to download both version I and version II, being by default FALSE. So setting this to TRUE means we are only accessing reanalysis I. 
+
+end_time<-Sys.time() #this will keep track of what time it was when the last function ended
+
+end_time - start_time #this will tell you how long the data<-NCEP.gather() function took to execute
+#Time difference of 3.485134 mins (consistently ~3 mins)
+
+### prepare to rasterize rhu data
+#dimensions                    
+dim(data) #Look at the dimensions of the air data
+## [1]   32   23 8768
+
+#we find lon, lat and time with dimnames()
+#date and time
+date_time <- dimnames(data)[[3]]
+date_time <- ymd_h(date_time)
+head(date_time)
+
+## [1] "2015-01-01 00:00:00 UTC" "2015-01-01 06:00:00 UTC" "2015-01-01 12:00:00 UTC" "2015-01-01 18:00:00 UTC"
+## [5] "2015-01-02 00:00:00 UTC" "2015-01-02 06:00:00 UTC"
+
+#longitude and latitude
+lat <- dimnames(data)[[1]]
+lon <- dimnames(data)[[2]]
+
+#The atomic vector created for latitude and longitude are "characters" instead of "integers".
+#The NCEP data seems to download longitude as 360 degrees instead of 0:180; 0:-180 which is what we need to match the shapefile.
+typeof(lon) # "character"
+
+lon <- as.integer(lon)
+lat <- as.integer(lat)
+
+typeof(lon) # "integer"
+x <- lon -180
+lon <- -180 + x
+
+head(lon);head(lat)
+
+## [1] -110 -108 -105 -103 -100  -98
+## [1] "15"   "12.5" "10"   "7.5"  "5"    "2.5" 
+
+##Create a yearly average
+#create our grouping variable
+group <- year(date_time) 
+
+#estimate the average temperature by year 
+data_year <- aperm(
+  apply(
+    data, #our air data
+    c(1,2), #apply to each time series 1:row, 2:column a the mean( ) function
+    by, #group by
+    group, #years
+    function(x)ifelse(all(is.na(x)),NA,mean(x))),
+  c(2,3,1)) #reorder to get an array like the original
+
+dim(data_year) #1000haPa temperature per year 2015 to 2020
+## [1] 31 35  6
+
+##Visualize the rhu data
+#first we create all the combinations of lon-lat
+lonlat <- expand.grid(lon=lon,lat=lat)
+
+#as lonlat was a row/column name, it is character, that's why we convert it into numeric
+lonlat <- apply(lonlat,2,as.numeric) #this line might not be needed
+
+
+#lon and lat are not in the order as we expect
+#row=lon; column=lat
+data_year <- aperm(data_year,c(2,1,3))
+
+#subtract 273.15K to convert K to ºC.
+df <- data.frame(lonlat,
+                 Ta01=as.vector(data_year[,,1])-273.15,
+                 Ta06=as.vector(data_year[,,6])-273.15) #What does Ta01 and Ta07 mean? = the example was Jan-July so it's the first and seventh month; I changed Ta07 to [,,6] because there are 6 years
+
+#convert the wide table into a long one
+df <- gather(df,year,Ta,Ta01:Ta06)%>%
+  mutate(year=factor(year,unique(year),c("2015","2020")))
+
+
+RHU_data_2020<-subset(df, year == '2020')
+RHU_data_2020<-RHU_data_2020[,-3] #to rasterize the df needs to have lon, lat, and data columns
+View(RHU_data_2020)
+
+RHU_data<-rasterFromXYZ(RHU_data_2020)
+plot(RHU_data) #check that it worked
+
+##################################################################
+###/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\###
+##################################################################
+### NCEP doesn't have precipitation data, so you can get that from worldclim.
+## the UCDavis wasn't working for me the past few days so I subbed in relative humidity for a second predictor variable (above)
+#If name='worldclim' you must also provide arguments var, and a 
+#resolution res. Valid variables names are 'tmin', 'tmax', 'prec' 
+#and 'bio'. Valid resolutions are 0.5, 2.5, 5, and 10 (minutes of a
+#degree). In the case of res=0.5, you must also provide a lon and lat
+#argument for a tile; for the lower resolutions global data will 
+#be downloaded. In all cases there are 12 (monthly) files for each
+#variable except for 'bio' which contains 19 files.
+
+# library(raster)
+# ?getData() #this will explain all of the arguments for the next line of code
+
+# w1<-getData('worldclim', var='bio',res=5)
+
+# e<-extent(limit) #get the spatial extent/boundary of the South America shape file
+
+# Precip<-crop(x=w1, y=e) #crop the precipitation data to the extent of the South America shape file
 
 ##################################################################
 ###/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\###
 ##################################################################
 
-
-### Clip the data layers to the SouthAmerica area #studyarea.extent<-extent(-63,-40,-2,-27)
-
 ### Stack the data layers (this is the way they are organized for processing in model)
 
+#list all raster layers loaded in R environment
+rasters_for_stack <- as.list(ls()[sapply(ls(), function(x) class(get(x))) == 'RasterLayer'])
+
+#stack them
+for_stack <- stack (lapply(rasters_for_stack, get))
+
+#save the stack
+writeRaster(for_stack,
+            filename = "stacked_predictors",
+            format = "GTiff",
+            bylayer = TRUE,
+            overwrite = TRUE)
